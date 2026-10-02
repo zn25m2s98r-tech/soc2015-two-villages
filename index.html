@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Tale of Two Villages</title>
+<style>
+  :root {
+    --paper: #ffffff;
+    --ink: #262626;
+    --muted: #6b6560;
+    --rule: #ddd7d0;
+    --utah: #cc0000;
+    --utah-tint: #fdf3f3;
+    --median: #2f4b6e;
+    --dot: #3a3532;
+    --serif: Arial, Helvetica, sans-serif;
+    --sans: Arial, Helvetica, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body { font-family: var(--serif); font-size: 16px; line-height: 1.55; }
+  main { max-width: 780px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  h1 { font-size: 1.75rem; line-height: 1.15; margin: 0 0 .35rem; }
+  h2 { font-size: 1.2rem; margin: 0 0 .5rem; color: var(--utah); }
+  p { margin: 0 0 .75rem; max-width: 68ch; }
+  .dek { color: var(--muted); }
+
+  section { border-top: 1px solid var(--rule); padding-top: 1.25rem; margin-top: 1.5rem; }
+  header + section { border-top: 3px solid var(--utah); }
+
+  /* Village cards */
+  .village { margin-bottom: 1.75rem; }
+  .village-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1rem; }
+  .status { font-family: var(--sans); font-size: .85rem; color: var(--muted); margin: 0; }
+  .status.changed { color: var(--utah); }
+  .village-body { display: grid; grid-template-columns: 1fr; gap: .75rem; margin-top: .5rem; }
+  @media (min-width: 680px) {
+    .village-body { grid-template-columns: minmax(0, 1fr) 15.5rem; align-items: start; }
+  }
+  svg.plot { width: 100%; height: auto; display: block; }
+  .plot text { font-family: var(--sans); font-size: 13px; fill: var(--muted); }
+  .plot .mean-label { fill: var(--utah); font-size: 14px; }
+  .plot .median-label { fill: var(--median); font-size: 14px; }
+
+  table.stats { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: .9rem; }
+  .stats th { text-align: left; font-weight: normal; color: var(--muted); padding: .3rem .5rem .3rem 0; }
+  .stats td { text-align: right; padding: .3rem 0; font-variant-numeric: tabular-nums; }
+  .stats tr + tr th, .stats tr + tr td { border-top: 1px solid var(--rule); }
+  .stats tr.le th { color: var(--utah); }
+  .stats tr.le td { color: var(--utah); font-weight: bold; }
+  .formula-note { font-family: var(--sans); font-size: .78rem; color: var(--muted); margin-top: .4rem; }
+
+  /* Prediction */
+  fieldset { border: 0; padding: 0; margin: 0 0 .75rem; }
+  legend { padding: 0; margin-bottom: .4rem; }
+  .choice { display: flex; gap: .55rem; align-items: flex-start; margin: .35rem 0; }
+  .choice input { margin-top: .35rem; accent-color: var(--utah); }
+  .choice span { display: block; }
+  .choice small { display: block; color: var(--muted); font-size: .88rem; }
+  .locked-msg { font-family: var(--sans); font-size: .95rem; padding: .6rem .8rem; border-left: 3px solid var(--utah); background: var(--utah-tint); }
+
+  /* Buttons */
+  button {
+    font-family: var(--sans); font-size: .9rem; cursor: pointer;
+    border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
+    padding: .5rem .85rem; border-radius: 3px;
+  }
+  button:hover:not(:disabled) { background: #f4f2f0; }
+  button.primary { background: var(--utah); border-color: var(--utah); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #a30000; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  button:disabled { cursor: not-allowed; opacity: .45; }
+  :focus-visible { outline: 3px solid var(--median); outline-offset: 2px; }
+
+  /* Lab */
+  .readout { font-family: var(--sans); font-size: .92rem; padding: .55rem .8rem; border: 1px solid var(--rule); border-radius: 3px; font-variant-numeric: tabular-nums; }
+  .readout strong { color: var(--utah); }
+  .gate { font-family: var(--sans); font-size: .9rem; color: var(--muted); font-style: italic; }
+  .programs { display: grid; grid-template-columns: 1fr; gap: .6rem; margin: .75rem 0 1.25rem; }
+  @media (min-width: 620px) { .programs { grid-template-columns: 1fr 1fr 1fr; } }
+  .program small { display: block; font-family: var(--sans); font-size: .8rem; color: var(--muted); margin-top: .3rem; }
+  .program button { width: 100%; }
+
+  ol.residents { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: .1rem 1.75rem; }
+  @media (min-width: 680px) { ol.residents { grid-template-columns: 1fr 1fr; } }
+  .resident { display: grid; grid-template-columns: 6.2rem minmax(0, 1fr) 4.4rem; align-items: center; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--rule); }
+  .resident label { font-family: var(--sans); font-size: .85rem; }
+  .resident input[type="range"] { width: 100%; accent-color: var(--utah); }
+  .resident input[type="number"] {
+    width: 100%; font-family: var(--sans); font-size: .95rem; padding: .25rem .3rem;
+    border: 1px solid var(--rule); border-radius: 3px; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .lab-locked .programs, .lab-locked .residents { opacity: .5; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .plot .mover { transition: transform .18s ease-out; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>A Tale of Two Villages</h1>
+    <p class="dek">Each dot is one resident's age at death, in years. The mean of those ages is the village's life expectancy.</p>
+  </header>
+
+  <section aria-label="The villages">
+
+    <article class="village" id="village-a">
+      <div class="village-head">
+        <h2>Village A</h2>
+        <p class="status" id="status-a">Original records</p>
+      </div>
+      <div class="village-body">
+        <svg class="plot" id="plot-a" viewBox="0 0 520 170" role="img"></svg>
+        <div>
+          <table class="stats" id="stats-a"></table>
+        </div>
+      </div>
+    </article>
+
+    <article class="village" id="village-b">
+      <div class="village-head">
+        <h2>Village B</h2>
+        <p class="status">Original records</p>
+      </div>
+      <div class="village-body">
+        <svg class="plot" id="plot-b" viewBox="0 0 520 170" role="img"></svg>
+        <div>
+          <table class="stats" id="stats-b"></table>
+        </div>
+      </div>
+    </article>
+    <p class="formula-note">Variance and standard deviation use the sample formulas, dividing by n &minus; 1. The shaded band runs from one standard deviation below the mean to one above it.</p>
+  </section>
+
+  <section aria-labelledby="predict-h">
+    <h2 id="predict-h">Your prediction</h2>
+    <div id="predict-form">
+      <fieldset>
+        <legend>Which program will raise Village A's life expectancy more?</legend>
+        <label class="choice">
+          <input type="radio" name="prediction" value="clinic">
+          <span>Pediatric clinic<small>Two infants survive, living to 55 and 65.</small></span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="prediction" value="elixir">
+          <span>Longevity elixir<small>Each resident who reaches adulthood gains 15 years.</small></span>
+        </label>
+      </fieldset>
+      <button type="button" class="primary" id="lock-btn" disabled>Lock in prediction</button>
+    </div>
+    <p class="locked-msg" id="locked-msg" role="status" hidden></p>
+  </section>
+
+  <section aria-labelledby="lab-h" id="lab" class="lab-locked">
+    <h2 id="lab-h">Change Village A</h2>
+    <p class="gate" id="gate">Lock in a prediction to unlock the programs and sliders.</p>
+
+    <p class="readout" id="readout"></p>
+
+    <div class="programs">
+      <div class="program">
+        <button type="button" id="btn-clinic" aria-pressed="false" disabled>Apply pediatric clinic</button>
+        <small>Applied to the original records.</small>
+      </div>
+      <div class="program">
+        <button type="button" id="btn-elixir" aria-pressed="false" disabled>Apply longevity elixir</button>
+        <small>Applied to the original records.</small>
+      </div>
+      <div class="program">
+        <button type="button" id="btn-reset" aria-pressed="true" disabled>Reset to original records</button>
+        <small>Undoes every change to Village A.</small>
+      </div>
+    </div>
+
+    <ol class="residents" id="residents"></ol>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var ORIGINAL_A = [0, 0, 1, 3, 45, 58, 63, 67, 71, 76];
+  var VILLAGE_B = [54, 68, 74, 78, 81, 83, 85, 87, 89, 93];
+  var MAX_AGE = 100;
+  var ADULT_AGE = 18;
+
+  var STATUS_TEXT = {
+    original: "Original records",
+    clinic: "With the pediatric clinic",
+    elixir: "With the longevity elixir",
+    custom: "Edited by you"
+  };
+
+  var ages = ORIGINAL_A.slice();
+  var scenario = "original";
+  var unlocked = false;
+
+  // ---------- Statistics ----------
+  function describe(values) {
+    var n = values.length;
+    var sum = values.reduce(function (a, b) { return a + b; }, 0);
+    var mean = sum / n;
+    var sorted = values.slice().sort(function (a, b) { return a - b; });
+    var median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+
+    var counts = {};
+    values.forEach(function (v) { counts[v] = (counts[v] || 0) + 1; });
+    var maxCount = 0;
+    Object.keys(counts).forEach(function (k) { if (counts[k] > maxCount) maxCount = counts[k]; });
+    var modes = maxCount > 1
+      ? Object.keys(counts).filter(function (k) { return counts[k] === maxCount; })
+          .map(Number).sort(function (a, b) { return a - b; })
+      : [];
+
+    var ss = values.reduce(function (acc, v) { return acc + (v - mean) * (v - mean); }, 0);
+    var variance = ss / (n - 1);
+    return { n: n, mean: mean, median: median, modes: modes, variance: variance, sd: Math.sqrt(variance), counts: counts };
+  }
+
+  function fmt(v) {
+    return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtModes(modes) {
+    if (!modes.length) return "None";
+    if (modes.length === 1) return String(modes[0]);
+    if (modes.length === 2) return modes[0] + " and " + modes[1];
+    return modes.slice(0, -1).join(", ") + ", and " + modes[modes.length - 1];
+  }
+
+  // ---------- Rendering ----------
+  function renderStats(table, s) {
+    var rows = [
+      ["Mean (life expectancy)", fmt(s.mean), "le"],
+      ["Median", fmt(s.median), ""],
+      ["Mode", fmtModes(s.modes), ""],
+      ["Variance", fmt(s.variance), ""],
+      ["Standard deviation", fmt(s.sd), ""]
+    ];
+    table.innerHTML = rows.map(function (r) {
+      return '<tr class="' + r[2] + '"><th scope="row">' + r[0] + "</th><td>" + r[1] + "</td></tr>";
+    }).join("");
+  }
+
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  function el(name, attrs, text) {
+    var node = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function renderPlot(svg, values, s) {
+    var W = 520, ML = 14, MR = 14;
+    var axisY = 122, top = 22;
+    function x(v) { return ML + (v / MAX_AGE) * (W - ML - MR); }
+
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // Standard deviation band, clipped to the axis
+    var lo = Math.max(0, s.mean - s.sd), hi = Math.min(MAX_AGE, s.mean + s.sd);
+    svg.appendChild(el("rect", { x: x(lo), y: top, width: Math.max(0, x(hi) - x(lo)), height: axisY - top, fill: "var(--utah-tint)" }));
+
+    // Axis and ticks
+    svg.appendChild(el("line", { x1: x(0), x2: x(MAX_AGE), y1: axisY, y2: axisY, stroke: "var(--ink)", "stroke-width": 1 }));
+    for (var t = 0; t <= MAX_AGE; t += 10) {
+      svg.appendChild(el("line", { x1: x(t), x2: x(t), y1: axisY, y2: axisY + 4, stroke: "var(--ink)", "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: x(t), y: axisY + 16, "text-anchor": "middle" }, String(t)));
+    }
+
+    // Median line (dashed) and mean line
+    svg.appendChild(el("line", { x1: x(s.median), x2: x(s.median), y1: top + 6, y2: axisY, stroke: "var(--median)", "stroke-width": 1.5, "stroke-dasharray": "4 3" }));
+    svg.appendChild(el("line", { x1: x(s.mean), x2: x(s.mean), y1: top - 6, y2: axisY, stroke: "var(--utah)", "stroke-width": 2 }));
+
+    // Dots, stacked when residents share an age
+    var maxStack = 0;
+    Object.keys(s.counts).forEach(function (k) { if (s.counts[k] > maxStack) maxStack = s.counts[k]; });
+    var step = Math.min(12, (axisY - top - 10) / Math.max(1, maxStack));
+    var placed = {};
+    values.slice().sort(function (a, b) { return a - b; }).forEach(function (v) {
+      var k = placed[v] || 0;
+      placed[v] = k + 1;
+      svg.appendChild(el("circle", { cx: x(v), cy: axisY - 8 - k * step, r: 5, fill: "var(--dot)", stroke: "var(--paper)", "stroke-width": 1.5 }));
+    });
+
+    // Labels, kept inside the frame
+    function anchorFor(v) { return x(v) > W * 0.78 ? "end" : (x(v) < W * 0.22 ? "start" : "middle"); }
+    svg.appendChild(el("text", { x: x(s.mean), y: top - 10, "text-anchor": anchorFor(s.mean), "class": "mean-label" }, "Mean " + fmt(s.mean)));
+    svg.appendChild(el("text", { x: x(s.median), y: axisY + 36, "text-anchor": anchorFor(s.median), "class": "median-label" }, "Median " + fmt(s.median)));
+
+    svg.setAttribute("aria-label",
+      "Dot plot of ten ages at death: " + values.slice().sort(function (a, b) { return a - b; }).join(", ") +
+      ". Mean " + fmt(s.mean) + ", median " + fmt(s.median) + ", standard deviation " + fmt(s.sd) + ".");
+  }
+
+  function renderVillageA() {
+    var s = describe(ages);
+    renderPlot(document.getElementById("plot-a"), ages, s);
+    renderStats(document.getElementById("stats-a"), s);
+    document.getElementById("readout").innerHTML =
+      "Village A right now: <strong>mean (life expectancy) " + fmt(s.mean) + "</strong>, median " + fmt(s.median) +
+      ", standard deviation " + fmt(s.sd) + ".";
+    var status = document.getElementById("status-a");
+    status.textContent = STATUS_TEXT[scenario];
+    status.classList.toggle("changed", scenario !== "original");
+    ["clinic", "elixir"].forEach(function (k) {
+      document.getElementById("btn-" + k).setAttribute("aria-pressed", String(scenario === k));
+    });
+    document.getElementById("btn-reset").setAttribute("aria-pressed", String(scenario === "original"));
+  }
+
+  function renderVillageB() {
+    var s = describe(VILLAGE_B);
+    renderPlot(document.getElementById("plot-b"), VILLAGE_B, s);
+    renderStats(document.getElementById("stats-b"), s);
+  }
+
+  // ---------- Resident controls ----------
+  var list = document.getElementById("residents");
+  ORIGINAL_A.forEach(function (_, i) {
+    var n = i + 1;
+    var li = document.createElement("li");
+    li.className = "resident";
+    li.innerHTML =
+      '<label for="range-' + i + '">Resident ' + n + "</label>" +
+      '<input type="range" id="range-' + i + '" min="0" max="' + MAX_AGE + '" step="1" disabled>' +
+      '<input type="number" id="num-' + i + '" min="0" max="' + MAX_AGE + '" step="1" inputmode="numeric" ' +
+      'aria-label="Resident ' + n + ', age at death in years" disabled>';
+    list.appendChild(li);
+  });
+
+  function syncControls() {
+    ages.forEach(function (v, i) {
+      document.getElementById("range-" + i).value = v;
+      document.getElementById("num-" + i).value = v;
+    });
+  }
+
+  function setAge(i, v) {
+    ages[i] = v;
+    scenario = "custom";
+    renderVillageA();
+  }
+
+  ORIGINAL_A.forEach(function (_, i) {
+    var range = document.getElementById("range-" + i);
+    var num = document.getElementById("num-" + i);
+    range.addEventListener("input", function () {
+      var v = Number(range.value);
+      num.value = v;
+      setAge(i, v);
+    });
+    num.addEventListener("input", function () {
+      if (num.value === "") return;
+      var v = Math.round(Number(num.value));
+      if (isNaN(v) || v < 0 || v > MAX_AGE) return;
+      range.value = v;
+      setAge(i, v);
+    });
+    num.addEventListener("change", function () {
+      var v = Math.round(Number(num.value));
+      if (num.value === "" || isNaN(v)) v = ages[i];
+      v = Math.min(MAX_AGE, Math.max(0, v));
+      num.value = v;
+      range.value = v;
+      if (v !== ages[i]) setAge(i, v);
+    });
+  });
+
+  // ---------- Programs ----------
+  function applyScenario(name) {
+    ages = ORIGINAL_A.slice();
+    if (name === "clinic") {
+      ages[0] = 55;
+      ages[1] = 65;
+    } else if (name === "elixir") {
+      ages = ORIGINAL_A.map(function (v) { return v >= ADULT_AGE ? v + 15 : v; });
+    }
+    scenario = name;
+    syncControls();
+    renderVillageA();
+  }
+  document.getElementById("btn-clinic").addEventListener("click", function () { applyScenario("clinic"); });
+  document.getElementById("btn-elixir").addEventListener("click", function () { applyScenario("elixir"); });
+  document.getElementById("btn-reset").addEventListener("click", function () { applyScenario("original"); });
+
+  // ---------- Prediction lock ----------
+  var lockBtn = document.getElementById("lock-btn");
+  var radios = document.querySelectorAll('input[name="prediction"]');
+  Array.prototype.forEach.call(radios, function (r) {
+    r.addEventListener("change", function () { lockBtn.disabled = false; });
+  });
+
+  lockBtn.addEventListener("click", function () {
+    var chosen = document.querySelector('input[name="prediction"]:checked');
+    if (!chosen) return;
+    var label = chosen.value === "clinic" ? "the pediatric clinic" : "the longevity elixir";
+    Array.prototype.forEach.call(radios, function (r) { r.disabled = true; });
+    document.getElementById("predict-form").hidden = true;
+    var msg = document.getElementById("locked-msg");
+    msg.textContent = "Prediction locked: " + label + ". The programs and sliders below are now unlocked.";
+    msg.hidden = false;
+    unlock();
+  });
+
+  function unlock() {
+    unlocked = true;
+    document.getElementById("lab").classList.remove("lab-locked");
+    document.getElementById("gate").hidden = true;
+    Array.prototype.forEach.call(document.querySelectorAll("#lab button, #lab input"), function (c) { c.disabled = false; });
+  }
+
+  // ---------- Start ----------
+  syncControls();
+  renderVillageA();
+  renderVillageB();
+})();
+</script>
+</body>
+</html>
